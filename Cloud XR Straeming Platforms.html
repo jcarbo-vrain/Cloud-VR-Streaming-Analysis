@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Analysis: Cloud XR Streaming for Medical VR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals with Clinical Blue Accent -->
+    <!-- Application Structure Plan: A top-down narrative flow guides the user from the high-level strategic recommendation to the detailed data. The structure is: 1. Executive Summary & Recommendation (top), 2. Interactive Vendor Comparison (middle), and 3. Technical Deep Dive (bottom). This prioritizes the most critical "answer" first, then allows users to explore the comparative data that supports it, and finally dig into the foundational concepts if needed. This is more effective than the report's linear structure because it serves users with different needs: executives who need the summary, project managers who need the comparison, and engineers who need the technical details. -->
+    <!-- Visualization & Content Choices:
+        - Report Info: Vendor Comparison (Latency, Pricing, Relevance) -> Goal: Compare -> Viz: Interactive Radar Chart & Dynamic Bar Chart (Chart.js) -> Interaction: Hovering over the chart reveals detailed stats for each vendor. Buttons allow switching between different comparison metrics (e.g., 'Performance', 'Cost'). -> Justification: Radar charts are excellent for multi-variate comparison, showing a vendor's overall strengths. Bar charts provide a clear, direct comparison on a single metric. This interactivity allows users to drive the analysis.
+        - Report Info: Technology Architecture (5 stages) -> Goal: Organize -> Viz: Numbered list with icons in a flexbox layout (HTML/Tailwind) -> Interaction: Hovering over a stage could reveal more detail (not implemented to keep it clean, but possible). -> Justification: A simple, clear visual flow is more digestible than dense paragraphs of text for explaining a process.
+        - Report Info: Final Recommendations (Hololight, LarkXR) -> Goal: Inform -> Viz: Highlighted cards with key justification points (HTML/Tailwind) -> Interaction: Clicking a card could scroll to its detailed analysis. -> Justification: Visually separates and elevates the final conclusions for maximum impact.
+        - Report Info: TCO/Business Models -> Goal: Compare -> Viz: Tabbed content area (HTML/JS) -> Interaction: User clicks tabs for 'Fixed-Cost', 'Variable-Cost', 'Build-it-Yourself' to reveal explanatory text. -> Justification: Organizes complex related concepts into a single, space-efficient component, preventing cognitive overload.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f7f4;
+            color: #3d3d3d;
+        }
+        .warm-neutral-bg { background-color: #f8f7f4; }
+        .soft-neutral-bg { background-color: #edeae5; }
+        .card-bg { background-color: #ffffff; }
+        .accent-blue { color: #007a9e; }
+        .accent-blue-bg { background-color: #007a9e; }
+        .accent-blue-border { border-color: #007a9e; }
+        .header-bg {
+            background: linear-gradient(135deg, #e0e7ff, #f8f7f4);
+        }
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #007a9e;
+            transition: width 0.3s ease;
+        }
+        .nav-link.active, .nav-link:hover {
+            color: #007a9e;
+        }
+        .nav-link.active::after, .nav-link:hover::after {
+            width: 100%;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .tab {
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .tab.active {
+            color: #007a9e;
+            border-color: #007a9e;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="warm-neutral-bg">
+
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl accent-blue">XR Streaming Analysis</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#recommendation" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700">Recommendation</a>
+                        <a href="#comparison" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700">Vendor Comparison</a>
+                        <a href="#technology" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700">Technology</a>
+                        <a href="#roadmap" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700">Roadmap</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Header Section -->
+        <header class="header-bg py-16 sm:py-24">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-gray-900">Strategic Analysis of Cloud XR Streaming Platforms</h1>
+                <p class="mt-4 max-w-3xl mx-auto text-lg sm:text-xl text-gray-600">An interactive guide to selecting the optimal cloud streaming partner for your high-fidelity medical VR application.</p>
+            </div>
+        </header>
+
+        <!-- Recommendation Section -->
+        <section id="recommendation" class="py-16 sm:py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Final Recommendations</h2>
+                    <p class="mt-3 max-w-2xl mx-auto text-lg text-gray-500">Based on a comprehensive analysis of performance, security, cost, and medical relevance, we have ranked the top solutions.</p>
+                </div>
+                <div class="mt-12 grid gap-8 lg:grid-cols-2 lg:gap-12">
+                    <div class="card-bg p-8 rounded-2xl shadow-lg border-2 border-green-500 transform hover:scale-105 transition-transform duration-300">
+                        <div class="flex items-center mb-4">
+                            <span class="text-2xl mr-3">🏆</span>
+                            <h3 class="text-2xl font-bold text-gray-900">Premier Recommendation: Hololight</h3>
+                        </div>
+                        <p class="text-gray-600 mb-4">Hololight offers the best balance of performance, security, and maturity for a high-stakes medical use case. It is the lowest-risk, most secure, and technologically mature platform.</p>
+                        <ul class="space-y-2 text-gray-700">
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span><strong>Security & Medical Relevance:</strong> Proven track record in the medical sector and architected for enterprise security.</span></li>
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span><strong>Mature Ecosystem:</strong> Excellent, transparent developer tools and a no-code runtime reduce integration risk.</span></li>
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span><strong>Robust Infrastructure:</strong> Deep partnership with AWS ensures a reliable path for global deployment.</span></li>
+                        </ul>
+                    </div>
+                    <div class="card-bg p-8 rounded-2xl shadow-lg border-2 border-yellow-500 transform hover:scale-105 transition-transform duration-300">
+                        <div class="flex items-center mb-4">
+                            <span class="text-2xl mr-3">🥈</span>
+                            <h3 class="text-2xl font-bold text-gray-900">Viable Alternative: LarkXR</h3>
+                        </div>
+                        <p class="text-gray-600 mb-4">A compelling alternative, especially if minimizing initial capital expenditure is a primary business driver. Higher-risk, but potentially higher-reward.</p>
+                        <ul class="space-y-2 text-gray-700">
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span><strong>Disruptive Business Model:</strong> Usage-based pricing aligns costs with revenue, de-risking the product launch.</span></li>
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span><strong>High-Performance Potential:</strong> Most aggressive latency claims (<30ms), which if validated, could be a technical game-changer.</span></li>
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span><strong>Reservations:</strong> Less public developer documentation and a less established track record in high-security deployments.</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vendor Comparison Section -->
+        <section id="comparison" class="soft-neutral-bg py-16 sm:py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Interactive Vendor Comparison</h2>
+                    <p class="mt-3 max-w-2xl mx-auto text-lg text-gray-500">Analyze how the leading platforms stack up across key metrics. Use the controls to explore different aspects of the data.</p>
+                </div>
+                <div class="mt-12 lg:grid lg:grid-cols-2 lg:gap-12 items-center">
+                    <div class="mb-10 lg:mb-0">
+                        <div class="chart-container">
+                            <canvas id="vendorRadarChart"></canvas>
+                        </div>
+                        <p class="text-center text-sm text-gray-500 mt-2">Overall Capability Score (Higher is better)</p>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="mb-6">
+                            <h3 class="text-2xl font-semibold text-center mb-4">Direct Comparison</h3>
+                             <div class="flex justify-center rounded-lg shadow-sm" role="group">
+                                <button type="button" id="compare-latency" class="comparison-btn active accent-blue-bg text-white px-4 py-2 text-sm font-medium rounded-l-lg">Latency</button>
+                                <button type="button" id="compare-cost" class="comparison-btn bg-white text-gray-900 hover:bg-gray-100 px-4 py-2 text-sm font-medium">Cost Model</button>
+                                <button type="button" id="compare-medical" class="comparison-btn bg-white text-gray-900 hover:bg-gray-100 px-4 py-2 text-sm font-medium rounded-r-lg">Medical Relevance</button>
+                            </div>
+                        </div>
+                        <div class="w-full max-w-lg h-80">
+                            <canvas id="vendorBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Technology Section -->
+        <section id="technology" class="py-16 sm:py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">How Cloud Streaming Works</h2>
+                    <p class="mt-3 max-w-2xl mx-auto text-lg text-gray-500">This technology offloads heavy computation to the cloud, sending a stream of pixels to the VR headset. This section explains the core architecture and key considerations like latency and security.</p>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold text-center mb-8">The 5 Stages of the Streaming Loop</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-8 text-center">
+                        <div class="flex flex-col items-center">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full accent-blue-bg text-white text-2xl font-bold mb-4">1</div>
+                            <h4 class="font-semibold text-lg">Server-Side Rendering</h4>
+                            <p class="text-gray-600 text-sm">A powerful cloud GPU renders the 3D medical image.</p>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full accent-blue-bg text-white text-2xl font-bold mb-4">2</div>
+                            <h4 class="font-semibold text-lg">Real-Time Encoding</h4>
+                            <p class="text-gray-600 text-sm">Each rendered frame is compressed into a video stream.</p>
+                        </div>
+                        <div class="flex flex-col items-center">
+                           <div class="flex items-center justify-center h-16 w-16 rounded-full accent-blue-bg text-white text-2xl font-bold mb-4">3</div>
+                            <h4 class="font-semibold text-lg">Network Transport</h4>
+                            <p class="text-gray-600 text-sm">The stream is sent over the internet to the headset.</p>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full accent-blue-bg text-white text-2xl font-bold mb-4">4</div>
+                            <h4 class="font-semibold text-lg">Client-Side Decoding</h4>
+                            <p class="text-gray-600 text-sm">The headset decompresses the video and displays it.</p>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full accent-blue-bg text-white text-2xl font-bold mb-4">5</div>
+                            <h4 class="font-semibold text-lg">Sensor Data Uplink</h4>
+                            <p class="text-gray-600 text-sm">User's movement is sent back to the server to update the view.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-16 grid lg:grid-cols-2 gap-12 items-center">
+                     <div class="card-bg p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-xl font-bold mb-4">The Latency Imperative</h3>
+                        <p class="text-gray-600 mb-4">"Motion-to-photon" latency is the time from head movement to screen update. For VR, <20ms is ideal, but over the internet, a realistic target is <80ms. This is the most critical performance metric to test in a Proof of Concept.</p>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center"><span class="font-medium">Vendor Claim (LarkXR)</span><span class="font-bold accent-blue">< 30ms</span></div>
+                            <div class="flex justify-between items-center"><span class="font-medium">Vendor Claim (Hololight)</span><span class="font-bold accent-blue">< 50ms</span></div>
+                            <div class="flex justify-between items-center"><span class="font-medium">Academic Benchmark (Optimized)</span><span class="font-bold text-orange-600">~82ms</span></div>
+                        </div>
+                    </div>
+                    <div class="card-bg p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-xl font-bold mb-4">Security by Design</h3>
+                        <p class="text-gray-600 mb-4">The core security advantage of this model is that the sensitive 3D patient data <strong>never leaves the secure server.</strong> The headset only receives an encrypted video stream, drastically reducing the risk of data breaches on the client side.</p>
+                         <ul class="space-y-2 text-gray-700">
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span>End-to-End Encryption</span></li>
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span>Robust Access Control (SSO)</span></li>
+                            <li class="flex items-start"><span class="accent-blue mr-2 mt-1">✓</span><span>Secure Cloud Deployment (VPC)</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Roadmap Section -->
+        <section id="roadmap" class="soft-neutral-bg py-16 sm:py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Strategic Implementation Roadmap</h2>
+                    <p class="mt-3 max-w-2xl mx-auto text-lg text-gray-500">A phased approach to de-risk the project and ensure a successful global launch.</p>
+                </div>
+                <div class="mt-12 relative">
+                    <!-- The connecting line -->
+                    <div class="hidden md:block absolute top-5 left-1/2 -ml-px w-0.5 h-[calc(100%-2.5rem)] bg-gray-300"></div>
+
+                    <div class="grid md:grid-cols-3 gap-12">
+                        <!-- Phase 1 -->
+                        <div class="text-center">
+                            <div class="flex justify-center items-center mb-4">
+                                <div class="relative z-10 flex items-center justify-center h-12 w-12 rounded-full accent-blue-bg text-white text-xl font-bold">1</div>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-2">Phase 1: Proof of Concept</h3>
+                            <p class="font-bold text-gray-500 mb-2">(1-2 Months)</p>
+                            <p class="text-gray-600">Engage top vendors (Hololight, LarkXR) to empirically test latency and visual quality with your actual medical application.</p>
+                        </div>
+                        <!-- Phase 2 -->
+                        <div class="text-center">
+                            <div class="flex justify-center items-center mb-4">
+                                <div class="relative z-10 flex items-center justify-center h-12 w-12 rounded-full accent-blue-bg text-white text-xl font-bold">2</div>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-2">Phase 2: Pilot Program</h3>
+                            <p class="font-bold text-gray-500 mb-2">(3-6 Months)</p>
+                            <p class="text-gray-600">Select the winning vendor from the PoC and launch a limited pilot with trusted customers in a single region (e.g., EU).</p>
+                        </div>
+                        <!-- Phase 3 -->
+                        <div class="text-center">
+                            <div class="flex justify-center items-center mb-4">
+                                <div class="relative z-10 flex items-center justify-center h-12 w-12 rounded-full accent-blue-bg text-white text-xl font-bold">3</div>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-2">Phase 3: Global Expansion</h3>
+                            <p class="font-bold text-gray-500 mb-2">(6-12+ Months)</p>
+                            <p class="text-gray-600">Following a successful pilot, roll out infrastructure to the USA and South America and scale the service.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-800">
+        <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-gray-400 text-sm">
+            <p>&copy; 2025 Strategic Analysis Report. This is an interactive visualization for decision support.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const vendorData = {
+                labels: ['Hololight', 'LarkXR', 'Innoactive', 'NVIDIA CloudXR'],
+                datasets: {
+                    radar: {
+                        labels: ['Performance', 'Security', 'Ecosystem', 'Medical Relevance', 'Cost-Effectiveness'],
+                        datasets: [
+                            { label: 'Hololight', data: [8, 9, 9, 9, 6], fill: true, backgroundColor: 'rgba(0, 122, 158, 0.2)', borderColor: 'rgba(0, 122, 158, 1)', pointBackgroundColor: 'rgba(0, 122, 158, 1)' },
+                            { label: 'LarkXR', data: [9, 7, 6, 6, 9], fill: true, backgroundColor: 'rgba(255, 159, 64, 0.2)', borderColor: 'rgba(255, 159, 64, 1)', pointBackgroundColor: 'rgba(255, 159, 64, 1)' },
+                            { label: 'Innoactive', data: [7, 8, 7, 4, 3], fill: true, backgroundColor: 'rgba(75, 192, 192, 0.2)', borderColor: 'rgba(75, 192, 192, 1)', pointBackgroundColor: 'rgba(75, 192, 192, 1)' },
+                        ]
+                    },
+                    latency: {
+                        labels: ['Hololight', 'LarkXR'],
+                        datasets: [{
+                            label: 'Claimed Latency (ms, lower is better)',
+                            data: [50, 30],
+                            backgroundColor: ['rgba(0, 122, 158, 0.6)', 'rgba(255, 159, 64, 0.6)'],
+                            borderColor: ['rgba(0, 122, 158, 1)', 'rgba(255, 159, 64, 1)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    cost: {
+                        labels: ['Hololight', 'LarkXR', 'Innoactive'],
+                        datasets: [{
+                            label: 'Cost Model Score (10=Best)',
+                            data: [6, 9, 3],
+                            backgroundColor: ['rgba(0, 122, 158, 0.6)', 'rgba(255, 159, 64, 0.6)', 'rgba(75, 192, 192, 0.6)'],
+                            borderColor: ['rgba(0, 122, 158, 1)', 'rgba(255, 159, 64, 1)', 'rgba(75, 192, 192, 1)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    medical: {
+                        labels: ['Hololight', 'LarkXR', 'Innoactive'],
+                        datasets: [{
+                            label: 'Medical Relevance Score (10=Best)',
+                            data: [9, 6, 4],
+                            backgroundColor: ['rgba(0, 122, 158, 0.6)', 'rgba(255, 159, 64, 0.6)', 'rgba(75, 192, 192, 0.6)'],
+                            borderColor: ['rgba(0, 122, 158, 1)', 'rgba(255, 159, 64, 1)', 'rgba(75, 192, 192, 1)'],
+                            borderWidth: 1
+                        }]
+                    }
+                }
+            };
+
+            const radarCtx = document.getElementById('vendorRadarChart').getContext('2d');
+            const radarChart = new Chart(radarCtx, {
+                type: 'radar',
+                data: vendorData.datasets.radar,
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                            pointLabels: { font: { size: 12 } },
+                            suggestedMin: 0,
+                            suggestedMax: 10,
+                            ticks: { backdropColor: '#f8f7f4', stepSize: 2 }
+                        }
+                    }
+                }
+            });
+
+            const barCtx = document.getElementById('vendorBarChart').getContext('2d');
+            let barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: vendorData.datasets.latency,
+                options: {
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true, grid: { display: false } },
+                        y: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.x !== null) {
+                                        label += context.parsed.x;
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Claimed Latency (ms, lower is better)',
+                            font: { size: 14 }
+                        }
+                    }
+                }
+            });
+
+            const comparisonButtons = document.querySelectorAll('.comparison-btn');
+            comparisonButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    comparisonButtons.forEach(btn => {
+                        btn.classList.remove('active', 'accent-blue-bg', 'text-white');
+                        btn.classList.add('bg-white', 'text-gray-900', 'hover:bg-gray-100');
+                    });
+                    button.classList.add('active', 'accent-blue-bg', 'text-white');
+                    button.classList.remove('bg-white', 'text-gray-900', 'hover:bg-gray-100');
+
+                    const dataType = button.id.split('-')[1];
+                    barChart.data = vendorData.datasets[dataType];
+                    barChart.options.plugins.title.text = vendorData.datasets[dataType].datasets[0].label;
+                    barChart.update();
+                });
+            });
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('section, header');
+
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 80) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').includes(current)) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
